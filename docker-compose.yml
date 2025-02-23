@@ -1,0 +1,88 @@
+# Dockerfile → Defines how your Flask app is built inside a container.
+# docker-compose.yml → Manages multiple services (Flask app + MongoDB) and links them together.
+# They work together like this:
+# 1. docker-compose.yml tells Docker to build your Flask app using the Dockerfile.
+# 2. docker-compose.yml also runs a MongoDB container and links it to the Flask app.
+
+version: "3.8"
+
+services:
+  mongodb: # Runs MongoDB inside a Docker container.
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"  # Expose MongoDB on port 27017
+    volumes: # Ensures data is not lost when the container stops.
+      - mongodb_data:/data/db  # Persist data even after container restarts
+    environment: # Defines admin credentials for MongoDB.
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+
+  stocks1-a:
+    build: ./stocks
+    container_name: stocks1-a
+    restart: always
+    depends_on:
+      - mongodb
+    environment:
+      MONGO_URI: "mongodb://admin:password@mongodb:27017/stockdb?authSource=admin"
+      STOCKS_COLLECTION: "stocks1"
+    ports:
+      - "5001:5001"  # Expose port
+
+
+  stocks1-b:
+    build: ./stocks
+    container_name: stocks1-b
+    restart: always
+    depends_on:
+      - mongodb
+    environment:
+      MONGO_URI: "mongodb://admin:password@mongodb:27017/stockdb?authSource=admin"
+      STOCKS_COLLECTION: "stocks1"
+    ports:
+      - "5004:5001"  # Expose port
+
+  stocks2:
+    build: ./stocks
+    container_name: stocks2
+    restart: always
+    depends_on:
+      - mongodb
+    environment:
+      MONGO_URI: "mongodb://admin:password@mongodb:27017/stockdb?authSource=admin"
+      STOCKS_COLLECTION: "stocks2"
+    ports:
+      - "5003:5001"
+
+  capital-gains:
+      build: ./capital-gains
+      container_name: capital-gains
+      restart: always
+      depends_on:
+        - stocks1-a
+        - stocks1-b
+        - stocks2
+      environment:
+        NINJA_API_KEY: "fMYKMHPC1CA9KlTDEH9sag==79z6HMNJjIRIJNhN"
+      ports:
+        - "5002:5002"
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: always
+    depends_on:
+      - stocks1-a
+      - stocks1-b
+      - stocks2
+      - capital-gains
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  mongodb_data:
