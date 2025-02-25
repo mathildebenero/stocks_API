@@ -59,6 +59,14 @@ def create_routes(app):
             stocks_collection.insert_one(new_stock)  # Insert stock into MongoDB
             return jsonify({"id": stock_id}), 201  # Return success response
 
+    @app.route("/stocks/<id>", methods=["GET"])
+    def get_stock_by_id(id):
+        stock = stocks_collection.find_one({"id": id}, {"_id": 0})
+        if stock:
+            return jsonify(stock), 200
+        return jsonify({"error": "Not found"}), 404
+
+
     # 📌 STEP 2️⃣: User Checks a Specific Stock (GET / PUT / DELETE)
     @app.route("/stocks/<id>", methods=["GET", "PUT", "DELETE"])
     def manage_stock(id):
